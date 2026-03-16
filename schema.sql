@@ -10,29 +10,29 @@ CREATE TABLE dim_date (
 
 CREATE TABLE dim_developer (
     developer_id SERIAL PRIMARY KEY,
-    name VARCHAR(30),
+    name VARCHAR(30) UNIQUE,
     country VARCHAR(30),
     founded_year INT
 );
 
 CREATE TABLE dim_genre (
     genre_id SERIAL PRIMARY KEY,
-    genre VARCHAR(30),
+    genre VARCHAR(30) UNIQUE,
     description VARCHAR(100)
 );
 
 CREATE TABLE dim_platform (
     platform_id SERIAL PRIMARY KEY,
-    name VARCHAR(20),
+    name VARCHAR(20) UNIQUE,
     type VARCHAR(30)
 );
 
 CREATE TABLE dim_game (
     game_id SERIAL PRIMARY KEY,
-    title VARCHAR(100),
+    title VARCHAR(100) UNIQUE,
     publisher VARCHAR(30),
     release_date DATE,
-    game_desc VARCHAR(100),
+    game_desc TEXT,
     steam_app_id INT,
     developer_id INT REFERENCES dim_developer(developer_id)
 );
@@ -79,4 +79,5 @@ CREATE TABLE fact_patch_events (
 CREATE TABLE game_developers(
 	game_id INT REFERENCES dim_game (game_id),
 	developer_id INT REFERENCES dim_developer (developer_id)
+	PRIMARY KEY(game_id, developer_id)
 );

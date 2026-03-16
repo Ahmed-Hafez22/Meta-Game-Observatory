@@ -10,6 +10,14 @@ def filter_game_data(data):
     game_desc = data[data_key]["data"]["short_description"]
     steam_appId = data[data_key]["data"]["steam_appid"]
     game_developers = data[data_key]["data"]["developers"][0]
+    genres_lst = []
+    platfroms_dict = {}
+
+    for platfrom in data[data_key]["data"]["platforms"].keys():
+        platfroms_dict[platfrom] = "PC"
+
+    for i in data[data_key]["data"]["genres"]:
+        genres_lst.append(i["description"])
 
     date_dict = format_date(game_release_date)
 
@@ -19,7 +27,9 @@ def filter_game_data(data):
         "game_desc": game_desc,
         "steam_appId": steam_appId,
         "game_developers": game_developers,
-        "date_dict":date_dict
+        "date_dict":date_dict,
+        "platforms" : platfroms_dict,
+        "genres_lst" : genres_lst
     }
 
 

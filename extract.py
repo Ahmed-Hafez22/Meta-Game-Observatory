@@ -1,4 +1,4 @@
-import requests, transform
+import requests
 
 def extract_raw_game_data(url):
     response = requests.get(url)
