@@ -6,7 +6,13 @@ def filter_game_data(data):
 
     game_title = data[data_key]["data"]["name"]
     game_publisher = data[data_key]["data"]["publishers"][0]
+    
     game_release_date = data[data_key]["data"]["release_date"]["date"]
+    try:
+        game_release_date = datetime.strptime(game_release_date, "%b %d, %Y")
+    except ValueError:
+        game_release_date = datetime.strptime(game_release_date, "%d %b, %Y")
+
     game_desc = data[data_key]["data"]["short_description"]
     steam_appId = data[data_key]["data"]["steam_appid"]
     game_developers = data[data_key]["data"]["developers"][0]
@@ -19,7 +25,6 @@ def filter_game_data(data):
     for i in data[data_key]["data"]["genres"]:
         genres_lst.append(i["description"])
 
-    date_dict = format_date(game_release_date)
 
     return {
         "game_title": game_title,
@@ -27,17 +32,14 @@ def filter_game_data(data):
         "game_desc": game_desc,
         "steam_appId": steam_appId,
         "game_developers": game_developers,
-        "date_dict":date_dict,
+        "game_release_date": game_release_date,
         "platforms" : platfroms_dict,
         "genres_lst" : genres_lst
     }
 
 
 def format_date(date):
-    try:
-        formatted_date = datetime.strptime(date, "%b %d, %Y")
-    except ValueError:
-        formatted_date = datetime.strptime(date, "%d %b, %Y")
+    formatted_date = datetime.now()
 
     day = formatted_date.day
     month = formatted_date.month

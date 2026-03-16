@@ -1,6 +1,6 @@
 import main, connect
 
-clean_data = main.formatted_data
+clean_data = main.formatted_game_data
 connection = connect.connect_to_db()
 cursor = connection.cursor()
 
@@ -123,7 +123,7 @@ def insert_game(game_info):
         (
             game_info["game_title"],
             game_info["game_publisher"],
-            game_info["date_dict"]["full_date"],
+            game_info["game_release_date"],
             game_info["game_desc"],
             game_info["steam_appId"],
         ),
@@ -171,7 +171,6 @@ def insert_game(game_info):
                                     """
         
         cursor.execute(platform_relation_query, (game_id, platform_id))
-
 
 insert_game(clean_data)
 
