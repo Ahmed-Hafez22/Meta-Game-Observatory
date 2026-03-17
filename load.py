@@ -1,6 +1,5 @@
-import main, connect
+import connect
 
-clean_data = main.formatted_game_data
 connection = connect.connect_to_db()
 cursor = connection.cursor()
 
@@ -52,7 +51,7 @@ def insert_date(date_dict):
                     FROM dim_date
                     WHERE full_date = %s
                 """
-        cursor.execute(query, (date_dict["full_date"]))
+        cursor.execute(query, (date_dict["full_date"],))
         date_id = cursor.fetchone()
     return date_id
 
@@ -169,9 +168,56 @@ def insert_game(game_info):
                                     VALUES(%s, %s)
                                     ON CONFLICT (game_id, platform_id) DO NOTHING
                                     """
-        
+
         cursor.execute(platform_relation_query, (game_id, platform_id))
 
-insert_game(clean_data)
+    return game_id
 
-connection.commit()
+
+def insert_player_count(player_count, game_id, date_id):
+    retrieve_peak_player_count_query = """
+                                SELECT MAX(peak_players)
+                                FROM fact_player_count
+                                WHERE game_id = %s
+                                """
+    cursor.execute(retrieve_peak_player_count_query, (game_id,))
+    peak_player_count = cursor.fetchone()
+
+    if peak_player_count[0]:
+        pass
+    else:
+        peak_player_count = (player_count,)
+
+    retrieve_total_player_count_query = """
+                                        SELECT SUM(current_players_count), COUNT(*)
+                                        FROM fact_player_count
+                                        WHERE game_id = %s
+                                        """
+    cursor.execute(retrieve_total_player_count_query, (game_id,))
+    total_player_count = cursor.fetchone()
+
+    if total_player_count[0]:
+        avg_player_count = (total_player_count[0] + player_count) / (
+            total_player_count[1] + 1
+        )
+    else:
+        avg_player_count = player_count
+
+    if player_count > peak_player_count[0]:
+        insertion_query = """
+                            INSERT INTO fact_player_count (peak_players, current_players_count, avg_players, game_id, date_id)
+                            VALUES(%s, %s, %s, %s, %s)
+                        """
+        cursor.execute(
+            insertion_query,
+            (player_count, player_count, avg_player_count, game_id, date_id),
+        )
+    else:
+        insertion_query = """
+                        INSERT INTO fact_player_count (peak_players,current_players_count, avg_players, game_id, date_id)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """
+        cursor.execute(
+            insertion_query,
+            (peak_player_count[0], player_count, avg_player_count, game_id, date_id),
+        )
