@@ -60,3 +60,29 @@ def format_date():
 
 def transform_player_count(player_count_raw_dict):
     return player_count_raw_dict["response"]["player_count"]
+
+def transform_reviews(raw_game_data_dict, raw_reviews_dict):
+    data_key = list(raw_game_data_dict.keys())
+    data_key = data_key[0]
+
+    metacritic = raw_game_data_dict[data_key]["data"].get("metacritic")
+    reviews_score = metacritic["score"] if metacritic else 0
+
+    total_reviews = raw_reviews_dict["query_summary"]["total_reviews"]
+    review_desc = raw_reviews_dict["query_summary"]["review_score_desc"]
+
+    if review_desc in {"Overwhelmingly Positive", "Very Positive", "Positive"}:
+        review_desc = "positive"
+    elif review_desc in {"Overwhelmingly Negative", "Very Negative", "Negative"}:
+        review_desc = "negative"
+    else:
+        review_desc = "mixed"
+
+    reviews_dict = {
+        "reviews_score" : reviews_score,
+        "total_reviews" : total_reviews,
+        "reviews_desc" : review_desc,
+        "review_source" : "Steam"
+    }
+
+    return (reviews_dict)

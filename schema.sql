@@ -33,8 +33,7 @@ CREATE TABLE dim_game (
     publisher VARCHAR(30),
     release_date DATE,
     game_desc TEXT,
-    steam_app_id INT,
-    developer_id INT REFERENCES dim_developer(developer_id)
+    steam_app_id INT
 );
 
 CREATE TABLE game_genre (
@@ -54,7 +53,9 @@ CREATE TABLE fact_player_count (
     peak_players INT,
     avg_players DECIMAL,
     game_id INT REFERENCES dim_game(game_id),
-    date_id INT REFERENCES dim_date(date_id)
+    date_id INT REFERENCES dim_date(date_id),
+    recorded_at TIMESTAMP DEFAULT NOW(),
+    current_players_count INT
 );
 
 CREATE TABLE fact_reviews (
@@ -64,7 +65,8 @@ CREATE TABLE fact_reviews (
     review_source VARCHAR(15),
     total_reviews INT,
     game_id INT REFERENCES dim_game(game_id),
-    date_id INT REFERENCES dim_date(date_id)
+    date_id INT REFERENCES dim_date(date_id),
+    UNIQUE(review_source, game_id, date_id)
 );
 
 CREATE TABLE fact_patch_events (
@@ -78,6 +80,6 @@ CREATE TABLE fact_patch_events (
 
 CREATE TABLE game_developers(
 	game_id INT REFERENCES dim_game (game_id),
-	developer_id INT REFERENCES dim_developer (developer_id)
+	developer_id INT REFERENCES dim_developer (developer_id),
 	PRIMARY KEY(game_id, developer_id)
 );

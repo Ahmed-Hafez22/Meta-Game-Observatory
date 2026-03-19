@@ -11,3 +11,8 @@ def extract_raw_player_count(player_count_url):
     response = requests.get(player_count_url)
     player_count = response.json()
     return player_count
+
+def extract_raw_reviews(reviews_url):
+    response = requests.get(reviews_url)
+    reviews = response.json()
+    return reviews

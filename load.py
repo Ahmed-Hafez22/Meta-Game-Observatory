@@ -1,10 +1,5 @@
-import connect
-
-connection = connect.connect_to_db()
-cursor = connection.cursor()
-
-
-def insert_developers(game_developers):
+def insert_developers(game_developers, connection):
+    cursor = connection.cursor()
     insertion_query = """INSERT INTO dim_developer (name) 
                         VALUES (%s) 
                         ON CONFLICT (name) DO NOTHING
@@ -24,7 +19,8 @@ def insert_developers(game_developers):
     return developer_id
 
 
-def insert_date(date_dict):
+def insert_date(date_dict, connection):
+    cursor = connection.cursor()
     insertion_query = """
                         INSERT INTO dim_date (full_date, day, week, month, quarter, year)
                         VALUES (%s, %s, %s, %s, %s, %s)
@@ -56,7 +52,8 @@ def insert_date(date_dict):
     return date_id
 
 
-def insert_genre(genres_lst):
+def insert_genre(genres_lst, connection):
+    cursor = connection.cursor()
     IDs_lst = []
     for genre in genres_lst:
         insertion_query = """
@@ -83,7 +80,8 @@ def insert_genre(genres_lst):
     return IDs_lst
 
 
-def insert_platform(platforms_dict):
+def insert_platform(platforms_dict, connection):
+    cursor = connection.cursor()
     platform_ids = []
     for platform in platforms_dict:
         insertion_query = """
@@ -110,7 +108,8 @@ def insert_platform(platforms_dict):
     return platform_ids
 
 
-def insert_game(game_info):
+def insert_game(game_info, connection):
+    cursor = connection.cursor()
     insertion_query = """
                         INSERT INTO dim_game(title, publisher, release_date, game_desc, steam_app_id)
                         VALUES(%s, %s, %s, %s, %s)
@@ -142,9 +141,9 @@ def insert_game(game_info):
         cursor.execute(query, (game_info["game_title"],))
         game_id = cursor.fetchone()
 
-    developer_id = insert_developers(game_info["game_developers"])
-    genres_ids = insert_genre(game_info["genres_lst"])
-    platform_ids = insert_platform(game_info["platforms"])
+    developer_id = insert_developers(game_info["game_developers"], connection)
+    genres_ids = insert_genre(game_info["genres_lst"], connection)
+    platform_ids = insert_platform(game_info["platforms"], connection)
 
     developer_relation_query = """
                         INSERT INTO game_developers (game_id, developer_id)
@@ -174,7 +173,8 @@ def insert_game(game_info):
     return game_id
 
 
-def insert_player_count(player_count, game_id, date_id):
+def insert_player_count(player_count, game_id, date_id, connection):
+    cursor = connection.cursor()
     retrieve_peak_player_count_query = """
                                 SELECT MAX(peak_players)
                                 FROM fact_player_count
@@ -221,3 +221,23 @@ def insert_player_count(player_count, game_id, date_id):
             insertion_query,
             (peak_player_count[0], player_count, avg_player_count, game_id, date_id),
         )
+
+
+def insert_reviews(reviews_dict, game_id, date_id, connection):
+    cursor = connection.cursor()
+    insertion_query = """
+                        INSERT INTO fact_reviews (score, sentiment, review_source, total_reviews, game_id, date_id)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (game_id, review_source, date_id) DO NOTHING
+                        """
+    cursor.execute(
+        insertion_query,
+        (
+            reviews_dict["reviews_score"],
+            reviews_dict["reviews_desc"],
+            reviews_dict["review_source"],
+            reviews_dict["total_reviews"],
+            game_id,
+            date_id,
+        ),
+    )

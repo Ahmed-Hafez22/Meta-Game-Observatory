@@ -11,10 +11,15 @@ raw_player_count = extract.extract_raw_player_count(player_count_url)
 transformed_player_count = transform.transform_player_count(raw_player_count)
 todays_date = transform.format_date()
 
+reviews_url = "https://store.steampowered.com/appreviews/570?json=1"
+raw_reviews_data = extract.extract_raw_reviews(reviews_url)
+transformmed_review_data = transform.transform_reviews(raw_game_data, raw_reviews_data)
 
-game_id = load.insert_game(formatted_game_data)
-date_id = load.insert_date(todays_date)
-load.insert_player_count(transformed_player_count, game_id, date_id)
+
+game_id = load.insert_game(formatted_game_data, connection)
+date_id = load.insert_date(todays_date, connection)
+load.insert_player_count(transformed_player_count, game_id, date_id, connection)
+load.insert_reviews(transformmed_review_data, game_id, date_id, connection)
 
 
 connection.commit()
