@@ -71,8 +71,8 @@ CREATE TABLE fact_reviews (
 
 CREATE TABLE fact_patch_events (
     patch_id SERIAL PRIMARY KEY,
-    version VARCHAR(20),
-    patch_notes VARCHAR(100),
+    version VARCHAR(100) UNIQUE,
+    patch_notes TEXT,
     patch_type VARCHAR(30) CHECK (patch_type IN ('major', 'minor', 'hotfix')),
     game_id INT REFERENCES dim_game(game_id),
     date_id INT REFERENCES dim_date(date_id)

@@ -1,5 +1,5 @@
 from datetime import datetime
-
+import json, re
 
 def transform_game_data(raw_game_data_dict):
     data_key = list(raw_game_data_dict.keys())
@@ -38,8 +38,11 @@ def transform_game_data(raw_game_data_dict):
     }
 
 
-def format_date():
-    formatted_date = datetime.now().date()
+def format_date(date = None):
+    if not date: 
+        formatted_date = datetime.now().date()
+    else:
+        formatted_date = date
 
     day = formatted_date.day
     month = formatted_date.month
@@ -86,3 +89,40 @@ def transform_reviews(raw_game_data_dict, raw_reviews_dict):
     }
 
     return (reviews_dict)
+
+def transform_patches_info(raw_patches_dict):
+    patches_lst = []
+    for event in raw_patches_dict["events"]:
+        version = event["event_name"]
+        
+        if event["event_type"] == 13:
+            patch_type = "major"
+        elif event["event_type"] == 12:
+            patch_type = "minor"
+
+        patch_notes = event["announcement_body"]["body"]
+
+        new_line_regex = r"\[\*\]"
+        patch_notes = re.sub(new_line_regex, "\n", patch_notes)
+
+        general_regex = r"(\[.+?\])"
+        patch_notes = re.sub(general_regex, "", patch_notes)
+
+        regex = r"(\{.+?\})"
+        patch_notes = re.sub(regex, "", patch_notes)
+
+        regex = r"\/.+?\/.+?\..+?"
+        patch_notes = re.sub(regex, "", patch_notes)
+
+        patch_notes = "\n".join(line for line in patch_notes.splitlines() if line.strip())
+
+        date_dict = format_date(datetime.fromtimestamp(event["announcement_body"]["posttime"]))
+
+        patches_lst.append({
+            "version" : version,
+            "patch_type" : patch_type,
+            "patch_notes" : patch_notes,
+            "date_dict" : date_dict
+        })
+
+    return patches_lst

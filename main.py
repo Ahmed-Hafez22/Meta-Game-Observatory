@@ -15,11 +15,20 @@ reviews_url = "https://store.steampowered.com/appreviews/570?json=1"
 raw_reviews_data = extract.extract_raw_reviews(reviews_url)
 transformmed_review_data = transform.transform_reviews(raw_game_data, raw_reviews_data)
 
+patches_url = "https://store.steampowered.com/events/ajaxgetadjacentpartnerevents/?appid=570&count_before=0&count_after=100&event_type_filter=13,12"
+raw_patches_data = extract.extract_raw_game_data(patches_url)
+patches = transform.transform_patches_info(raw_patches_data)
+
 
 game_id = load.insert_game(formatted_game_data, connection)
 date_id = load.insert_date(todays_date, connection)
-load.insert_player_count(transformed_player_count, game_id, date_id, connection)
-load.insert_reviews(transformmed_review_data, game_id, date_id, connection)
-
+# load.insert_player_count(transformed_player_count, game_id, date_id, connection)
+# load.insert_reviews(transformmed_review_data, game_id, date_id, connection)
+for patch in patches:
+    patches_date_id = load.insert_date(patch["date_dict"], connection)
+    load.insert_patches(patch, connection, patches_date_id, game_id)
+    if patch["patch_type"] == "major":
+        break
 
 connection.commit()
+#TODO FIX THE String

@@ -241,3 +241,22 @@ def insert_reviews(reviews_dict, game_id, date_id, connection):
             date_id,
         ),
     )
+
+
+def insert_patches(patches_dict, connection, date_id, game_id):
+    cursor = connection.cursor()
+    insertion_query = """
+                        INSERT INTO fact_patch_events (version, patch_notes, patch_type, game_id, date_id)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (version) DO NOTHING
+                        """
+    cursor.execute(
+        insertion_query,
+        (
+            patches_dict["version"],
+            patches_dict["patch_notes"],
+            patches_dict["patch_type"],
+            game_id,
+            date_id,
+        ),
+    )

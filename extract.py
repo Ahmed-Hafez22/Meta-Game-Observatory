@@ -16,3 +16,8 @@ def extract_raw_reviews(reviews_url):
     response = requests.get(reviews_url)
     reviews = response.json()
     return reviews
+
+def extract_raw_patch_info(patches_url):
+    response = requests.get(patches_url)
+    patch_info = response.json()
+    return patch_info
