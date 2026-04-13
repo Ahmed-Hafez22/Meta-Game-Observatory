@@ -1,4 +1,4 @@
-import psycopg2, dotenv, os
+import psycopg2, dotenv, os, requests
 
 
 def connect_to_db():
@@ -14,3 +14,15 @@ def connect_to_db():
     )
 
     return conn
+
+def connect_to_igdb():
+    dotenv.load_dotenv()
+    client_id = os.getenv("IGDB_CLIENT_ID")
+    client_secret = os.getenv("IGDB_CLIENT_SECRET")
+
+    data_dict = requests.post(f"https://id.twitch.tv/oauth2/token?client_id={client_id}&client_secret={client_secret}&grant_type=client_credentials").json()
+
+    return {
+        "Client-ID" : client_id,
+        "Authorization" : f"Bearer {data_dict["access_token"]}"
+    }

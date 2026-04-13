@@ -18,13 +18,13 @@ CREATE TABLE dim_developer (
 CREATE TABLE dim_genre (
     genre_id SERIAL PRIMARY KEY,
     genre VARCHAR(30) UNIQUE,
-    description VARCHAR(100)
 );
 
 CREATE TABLE dim_platform (
     platform_id SERIAL PRIMARY KEY,
     name VARCHAR(20) UNIQUE,
-    type VARCHAR(30)
+    type VARCHAR(30),
+    igdb_platform_id INTEGER
 );
 
 CREATE TABLE dim_game (
@@ -82,4 +82,17 @@ CREATE TABLE game_developers(
 	game_id INT REFERENCES dim_game (game_id),
 	developer_id INT REFERENCES dim_developer (developer_id),
 	PRIMARY KEY(game_id, developer_id)
+);
+
+CREATE TABLE dim_publisher (
+    publisher_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE,
+    country VARCHAR(50),
+    founded_year INT
+);
+
+CREATE TABLE game_publisher (
+    game_id INT REFERENCES dim_game(game_id),
+    publisher_id INT REFERENCES dim_publisher(publisher_id),
+    PRIMARY KEY (game_id, publisher_id)
 );
