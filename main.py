@@ -34,7 +34,6 @@ def run_pipeline(game_name):
         raw_patches_data = extract.extract_raw_patch_info(patches_url)
         patches = transform.transform_patches_info(raw_patches_data)
         date_id = load.insert_date(todays_date, db_connection)
-        load.insert_player_count(transformed_player_count, game_id, date_id, db_connection)
         load.insert_reviews(transformmed_review_data, game_id, date_id, db_connection)
         for patch in patches:
             patches_date_id = load.insert_date(patch["date_dict"], db_connection)
@@ -86,20 +85,32 @@ def insert_reviews_and_patches(game_id, steam_appId):
             patches_date_id = load.insert_date(patch["date_dict"], db_connection)
             load.insert_patches(patch, db_connection, patches_date_id, game_id)
 
-        
 
-
-def update_all_games():
+def update_player_count():
     cursor = db_connection.cursor()
-    select_query = """
+    cursor.execute("""
                     SELECT game_id, steam_app_id
                     FROM dim_game
-                    """
-    cursor.execute(select_query)
+                    """)
     games = cursor.fetchall()
-    for game_id, steamId in games:
-        print(game_id, steamId)
+    for game_id, steam_appId in games:
+        insert_player_count(game_id, steam_appId)
+    db_connection.commit()
 
+def update_reviews_and_patches():
+    cursor = db_connection.cursor()
+    cursor.execute("""
+                    SELECT game_id, steam_app_id
+                    FROM dim_game
+                    """)
+    games = cursor.fetchall()
+    for game_id, steam_appId in games:
+        insert_reviews_and_patches(game_id, steam_appId)
+    db_connection.commit()
 
-update_all_games()
-db_connection.commit()
+from apscheduler.schedulers.blocking import BlockingScheduler
+
+scheduler = BlockingScheduler()
+scheduler.add_job(update_player_count, 'interval', hours=1)
+scheduler.add_job(update_reviews_and_patches, 'cron', hour=0, minute=0)
+scheduler.start()
