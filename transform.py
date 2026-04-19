@@ -2,7 +2,7 @@ from datetime import datetime
 import pycountry, re, requests
 
 
-def transform_game_data(igdb_connection, raw_game_data_dict):
+def transform_game_data(igdb_connection, raw_game_data_dict, steam_fallback_func=None):
     genre_ids = ",".join(str(id) for id in raw_game_data_dict["genres"])
     genres = requests.post(
         "https://api.igdb.com/v4/genres",
@@ -22,29 +22,46 @@ def transform_game_data(igdb_connection, raw_game_data_dict):
     developers_lst_of_dicts, publishers_lst_of_dicts = transform_companies(
         igdb_connection, companies
     )
-    external_sources = ",".join(str(id) for id in raw_game_data_dict["external_games"])
-    steam_appid = requests.post(
-        "https://api.igdb.com/v4/external_games",
-        headers=igdb_connection,
-        data=f"fields uid; where external_game_source = 1 & id = ({external_sources});"
-    ).json()
+    
+    # Try IGDB external_games first
+    steam_appid = None
+    if raw_game_data_dict.get("external_games"):
+        try:
+            external_sources = ",".join(str(id) for id in raw_game_data_dict["external_games"])
+            steam_appid_data = requests.post(
+                "https://api.igdb.com/v4/external_games",
+                headers=igdb_connection,
+                data=f"fields uid; where external_game_source = 1 & id = ({external_sources});"
+            ).json()
+            
+            if steam_appid_data and len(steam_appid_data) > 0:
+                steam_appid = steam_appid_data[0].get("uid")
+        except:
+            pass
+    
+    # Fallback: Use provided function
+    if not steam_appid and steam_fallback_func:
+        steam_appid = steam_fallback_func(raw_game_data_dict["name"])
 
     platforms_lst = raw_game_data_dict["platforms"]
-    game_desc = raw_game_data_dict["summary"]
+    game_desc = raw_game_data_dict.get("summary", "")
     title = raw_game_data_dict["name"]
-    release_date = datetime.fromtimestamp(
-        raw_game_data_dict["first_release_date"]
-    ).date()
+    
+    release_date = None
+    if raw_game_data_dict.get("first_release_date"):
+        release_date = datetime.fromtimestamp(
+            raw_game_data_dict["first_release_date"]
+        ).date()
 
     return {
-        "game_title" : title,
-        "game_release_date" : release_date,
-        "game_desc" : game_desc,
-        "steam_appId" : steam_appid[0]["uid"],
-        "genres_lst" : genre_lst,
-        "game_developers" : developers_lst_of_dicts,
-        "game_publishers" : publishers_lst_of_dicts,
-        "platforms" : platforms_lst
+        "game_title": title,
+        "game_release_date": release_date,
+        "game_desc": game_desc,
+        "steam_appId": steam_appid,
+        "genres_lst": genre_lst,
+        "game_developers": developers_lst_of_dicts,
+        "game_publishers": publishers_lst_of_dicts,
+        "platforms": platforms_lst
     }
 
 
@@ -110,9 +127,9 @@ def transform_reviews(raw_game_data_dict, raw_reviews_dict, igdb_data = None):
                 "review_source": "N/A"
             }
         else:
-            igdb_rating = igdb_data[0].get("aggregated_rating")
+            igdb_rating = igdb_data.get("aggregated_rating")
             reviews_score = round(igdb_rating) if igdb_rating else 0
-            igdb_rating_count = igdb_data[0].get("aggregated_rating_count")
+            igdb_rating_count = igdb_data.get("aggregated_rating_count")
 
             if reviews_score >= 75:
                 review_desc = "positive"
