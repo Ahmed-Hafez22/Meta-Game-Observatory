@@ -4,7 +4,7 @@ import extract, transform, load, connect
 def run_pipeline(game_name):
     print(f"\n=== Starting pipeline for: {game_name} ===")
     
-    db_connection = connect.connect_to_db()
+    db_connection = connect.connect_to_db("admin_user")
     igdb_connection = connect.connect_to_igdb()
     
     raw_game_data = extract.extract_raw_game_data(igdb_connection, game_name)

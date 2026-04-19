@@ -2,7 +2,7 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QComboBox, QLabel, QPushButton, QTabWidget, QLineEdit,
-    QStatusBar, QMessageBox, QProgressBar, QFrame
+    QStatusBar, QMessageBox, QProgressBar, QFrame, QDialog, QFormLayout, QDialogButtonBox
 )
 from PySide6.QtCore import Qt, QTimer, QThread, Signal
 import pyqtgraph as pg
@@ -12,6 +12,58 @@ import connect
 
 db_connection = connect.connect_to_db()
 cursor = db_connection.cursor()
+
+
+class LoginDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Login - Meta Game Observatory")
+        self.setFixedSize(350, 200)
+        self.setModal(True)
+        
+        layout = QFormLayout(self)
+        
+        # Title
+        title = QLabel("Meta Game Observatory")
+        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #0078d4; padding: 10px;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addRow(title)
+        
+        # Username field
+        self.username_input = QLineEdit()
+        self.username_input.setPlaceholderText("Enter username")
+        layout.addRow("Username:", self.username_input)
+        
+        # Password field
+        self.password_input = QLineEdit()
+        self.password_input.setPlaceholderText("Enter password")
+        self.password_input.setEchoMode(QLineEdit.Password)
+        layout.addRow("Password:", self.password_input)
+        
+        # Error label (hidden by default)
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet("color: #dc3545; font-size: 12px;")
+        self.error_label.setVisible(False)
+        layout.addRow(self.error_label)
+        
+        # Buttons
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+        
+        # Set focus to username
+        self.username_input.setFocus()
+    
+    def get_credentials(self):
+        return self.username_input.text(), self.password_input.text()
+    
+    def set_error(self, message):
+        self.error_label.setText(message)
+        self.error_label.setVisible(True)
+        self.username_input.clear()
+        self.password_input.clear()
+        self.username_input.setFocus()
 
 
 class PipelineWorker(QThread):
@@ -42,9 +94,15 @@ class PipelineWorker(QThread):
 
 
 class GameAnalyticsDashboard(QMainWindow):
-    def __init__(self):
+    def __init__(self, role='viewer_user'):
         super().__init__()
+
+        self.db_connection = connect.connect_to_db(role)
+        self.cursor = self.db_connection.cursor()
+        self.current_role = role
+        
         self.setWindowTitle("Meta Game Observatory")
+
         self.setGeometry(100, 100, 1300, 850)
         
         # Central widget and main layout
@@ -496,10 +554,16 @@ class GameAnalyticsDashboard(QMainWindow):
         if index > 0:
             developer_id = self.developer_combo.currentData()
             developer_name = self.developer_combo.currentText()
-            self.status_bar.showMessage(f"Loading games for {developer_name}...")
-            self.load_games_for_developer(developer_id)
-            self.update_developer_stats(developer_id)
-            self.status_bar.showMessage("Ready")
+            
+            if developer_id == "ALL":
+                self.status_bar.showMessage("Loading all games...")
+                self.load_all_games()
+                self.status_bar.showMessage("Ready")
+            else:
+                self.status_bar.showMessage(f"Loading games for {developer_name}...")
+                self.load_games_for_developer(developer_id)
+                self.update_developer_stats(developer_id)
+                self.status_bar.showMessage("Ready")
     
     def on_game_changed(self, index):
         if index > 0:
@@ -549,6 +613,8 @@ class GameAnalyticsDashboard(QMainWindow):
 
         self.developer_combo.clear()
         self.developer_combo.addItem("-- Select Developer --", None)
+        self.developer_combo.addItem("📋 All Games (No Developer Filter)", "ALL")
+
 
         for dev_id, dev_name in developers:
             self.developer_combo.addItem(dev_name, dev_id)
@@ -772,12 +838,32 @@ class GameAnalyticsDashboard(QMainWindow):
         
         return info
     
+
+    def load_all_games(self):
+        selection_query = """
+                            SELECT title, game_id
+                            FROM dim_game
+                            ORDER BY title
+                            """
+        cursor.execute(selection_query)
+        games = cursor.fetchall()
+
+        self.game_combo.clear()
+        self.game_combo.addItem("-- Select Game --", None)
+
+        for game_name, game_id in games:
+            self.game_combo.addItem(game_name, game_id)
+
+        self.status_bar.showMessage(f"Loaded {len(games)} games")
+    
     # === Chart Update Methods ===
     
     def update_player_chart(self, game_id):
         dates, peak_players, avg_players = self.load_player_count_data(game_id)
         
         if not dates:
+            self.player_chart.clear()
+            self.player_chart.setTitle("No player count data available")
             return
         
         self.player_chart.clear()
@@ -804,6 +890,7 @@ class GameAnalyticsDashboard(QMainWindow):
         if not clean_dates:
             return
         
+        # Line for player count (usually has enough data)
         peak_pen = pg.mkPen(color='#0078d4', width=2)
         self.player_chart.plot(clean_dates, clean_peaks, pen=peak_pen, name='Peak Players')
         
@@ -814,6 +901,8 @@ class GameAnalyticsDashboard(QMainWindow):
         scores, total_reviews, sentiment, dates = self.load_review_data(game_id)
         
         if not dates:
+            self.review_chart.clear()
+            self.review_chart.setTitle("No review data available")
             return
         
         self.review_chart.clear()
@@ -838,8 +927,33 @@ class GameAnalyticsDashboard(QMainWindow):
         if not clean_dates:
             return
         
-        score_pen = pg.mkPen(color='#28a745', width=2)
-        self.review_chart.plot(clean_dates, clean_scores, pen=score_pen, name='Review Score')
+        # Calculate point density to decide line vs scatter
+        if len(clean_dates) > 1:
+            date_range = max(clean_dates) - min(clean_dates)
+            days_range = max(date_range / 86400, 1)  # Convert to days, minimum 1
+            points_per_day = len(clean_dates) / days_range
+            
+            if points_per_day > 0.05 or len(clean_dates) >= 5:
+                # Use line for dense data or 5+ points
+                score_pen = pg.mkPen(color='#28a745', width=2)
+                self.review_chart.plot(clean_dates, clean_scores, pen=score_pen, name='Review Score')
+            else:
+                # Use scatter for sparse data
+                scatter = pg.ScatterPlotItem(x=clean_dates, y=clean_scores,
+                                              symbol='o', size=10,
+                                              brush=pg.mkBrush('#28a745'),
+                                              pen=pg.mkPen(None),
+                                              name='Review Score')
+                self.review_chart.addItem(scatter)
+        else:
+            # Single point - use scatter
+            scatter = pg.ScatterPlotItem(x=clean_dates, y=clean_scores,
+                                          symbol='o', size=12,
+                                          brush=pg.mkBrush('#28a745'),
+                                          pen=pg.mkPen(None),
+                                          name='Review Score')
+            self.review_chart.addItem(scatter)
+        
         self.review_chart.setLabel('left', 'Score (0-100)')
     
     def update_patch_chart(self, game_id):
@@ -921,12 +1035,33 @@ class GameAnalyticsDashboard(QMainWindow):
             self.platform_chart.addItem(label_text)
     
     def update_developer_stats(self, developer_id):
-        stats = self.load_developer_stats(developer_id)
-        
-        self.total_games_label.setText(f"📊 Total Games: {stats['total_games']}")
-        self.total_players_label.setText(f"👥 Current Total Players: {stats['total_current_players']:,.0f}")
-        self.avg_score_label.setText(f"⭐ Average Review Score: {stats['avg_score']:.1f}")
-        self.highest_peak_label.setText(f"🏆 All-Time Highest Peak: {stats['highest_peak']:,.0f}")
+
+        if developer_id == "ALL":
+            # Show overall stats for all games
+            cursor.execute("SELECT COUNT(*) FROM dim_game")
+            total_games = cursor.fetchone()[0] or 0
+            
+            cursor.execute("SELECT COALESCE(SUM(current_players_count), 0) FROM fact_player_count")
+            total_players = cursor.fetchone()[0] or 0
+            
+            cursor.execute("SELECT COALESCE(AVG(score), 0) FROM fact_reviews")
+            avg_score = cursor.fetchone()[0] or 0
+            
+            cursor.execute("SELECT COALESCE(MAX(peak_players), 0) FROM fact_player_count")
+            highest_peak = cursor.fetchone()[0] or 0
+            
+            self.total_games_label.setText(f"📊 Total Games: {total_games}")
+            self.total_players_label.setText(f"👥 Current Total Players: {total_players:,.0f}")
+            self.avg_score_label.setText(f"⭐ Average Review Score: {avg_score:.1f}")
+            self.highest_peak_label.setText(f"🏆 All-Time Highest Peak: {highest_peak:,.0f}")
+            return
+        else:
+            stats = self.load_developer_stats(developer_id)
+            
+            self.total_games_label.setText(f"📊 Total Games: {stats['total_games']}")
+            self.total_players_label.setText(f"👥 Current Total Players: {stats['total_current_players']:,.0f}")
+            self.avg_score_label.setText(f"⭐ Average Review Score: {stats['avg_score']:.1f}")
+            self.highest_peak_label.setText(f"🏆 All-Time Highest Peak: {stats['highest_peak']:,.0f}")
     
     def update_info_tab(self, game_id):
         info = self.load_game_info(game_id)
@@ -957,6 +1092,50 @@ class GameAnalyticsDashboard(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    window = GameAnalyticsDashboard()
-    window.show()
-    sys.exit(app.exec())
+    
+    login = LoginDialog()
+    
+    VALID_USERS = {
+        'admin': {'password': 'admin123', 'role': 'admin_user'},
+        'analyst': {'password': 'analyst123', 'role': 'analyst_user'},
+        'viewer': {'password': 'viewer123', 'role': 'viewer_user'}
+    }
+    
+    while True:
+        if login.exec() == QDialog.Accepted:
+            username, password = login.get_credentials()
+            
+            if username in VALID_USERS and VALID_USERS[username]['password'] == password:
+                role = VALID_USERS[username]['role']
+                
+                try:
+                    print(f"Attempting to connect with role: {role}")
+                    window = GameAnalyticsDashboard(role)
+                    
+                    if role == 'viewer_user':
+                        window.search_button.setEnabled(False)
+                        window.search_input.setEnabled(False)
+                        window.refresh_btn.setEnabled(False)
+                        window.status_bar.showMessage(f"Logged in as {username} (View Only)")
+                    elif role == 'analyst_user':
+                        window.search_button.setEnabled(True)
+                        window.search_input.setEnabled(True)
+                        window.refresh_btn.setEnabled(True)
+                        window.status_bar.showMessage(f"Logged in as {username} (Analyst - Can Add Games)")
+                    else:  # admin
+                        window.search_button.setEnabled(True)
+                        window.search_input.setEnabled(True)
+                        window.refresh_btn.setEnabled(True)
+                        window.status_bar.showMessage(f"Logged in as {username} (Admin - Full Access)")
+                    
+                    window.show()
+                    sys.exit(app.exec())
+                    break
+                    
+                except Exception as e:
+                    login.set_error(f"Database connection failed: {str(e)}")
+            else:
+                login.set_error("Invalid username or password")
+        else:
+            sys.exit(0)
+            break
