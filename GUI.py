@@ -731,7 +731,7 @@ class GameAnalyticsDashboard(QMainWindow):
                             FROM fact_patch_events AS p
                             JOIN dim_date AS d ON p.date_id = d.date_id
                             WHERE game_id = %s
-                            ORDER BY d.full_date
+                            ORDER BY d.full_date DESC
                             """
         cursor.execute(selection_query, (game_id,))
         patches = cursor.fetchall()
@@ -1004,6 +1004,10 @@ class GameAnalyticsDashboard(QMainWindow):
                     continue
             
             self.patch_list_label.setText(patch_text)
+        else:
+            # Clear patch list and show no data message
+            game_name = self.game_combo.currentText()
+            self.patch_list_label.setText(f"{game_name} Doesn't have available patches data")
     
     def update_platform_chart(self, game_id):
         platforms = self.load_platform_data(game_id)
