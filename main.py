@@ -74,7 +74,15 @@ def update_reviews_and_patches():
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
+# Run the player count update immediately
+print("Running initial player count update...")
+update_player_count()
+print("Initial player count update completed.")
+
 scheduler = BlockingScheduler()
+# Add the job to run every hour after the initial run
 scheduler.add_job(update_player_count, 'interval', hours=1)
 scheduler.add_job(update_reviews_and_patches, 'cron', hour=0, minute=0)
+
+print("Starting scheduler. Player count will update every hour, reviews and patches at midnight.")
 scheduler.start()
